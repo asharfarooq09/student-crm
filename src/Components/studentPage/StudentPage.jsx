@@ -21,7 +21,14 @@ import {
   Tooltip,
 } from "@mui/material";
 import { Add, Edit, Delete, Visibility } from "@mui/icons-material";
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+} from "firebase/firestore";
 import { db } from "../../firebase";
 import TemporaryDrawer from "../sidebar/Sidebar";
 import { useUserContext } from "../../AuthProvider";
@@ -33,7 +40,6 @@ const StudentsPage = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [isView, setIsView] = useState(false);
   const [formData, setFormData] = useState({
-    id: "",
     name: "",
     class: "",
     section: "",
@@ -47,6 +53,7 @@ const StudentsPage = () => {
     remarks: "",
   });
 
+  const [errors, setErrors] = useState({});
   const userContext = useUserContext();
 
   const navigate = useNavigate();
@@ -71,40 +78,94 @@ const StudentsPage = () => {
     }
   }, [userContext.user]);
 
-  // Handle form submit
+  const validate = (name, value) => {
+    switch (name) {
+      case "name":
+        return value ? "" : "Name is required";
+      case "class":
+        return value ? "" : "Class is required";
+      case "section":
+        return value ? "" : "Section is required";
+      case "rollNumber":
+        return value && !isNaN(value) ? "" : "Valid Roll Number is required";
+      case "age":
+        return value && !isNaN(value) && value > 0
+          ? ""
+          : "Valid Age is required";
+      case "email":
+        return value && /\S+@\S+\.\S+/.test(value)
+          ? ""
+          : "Invalid email address";
+      case "phone":
+        return value && /^\d{10}$/.test(value)
+          ? ""
+          : "Phone must be a 10-digit number";
+      case "guardianName":
+        return value ? "" : "Guardian Name is required";
+      case "guardianPhone":
+        return value && /^\d{10}$/.test(value)
+          ? ""
+          : "Guardian Phone must be a 10-digit number";
+      default:
+        return "";
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await addDoc(collection(db, "students"), formData);
-    setOpen(false);
-    setFormData({
-      id: "",
-      name: "",
-      class: "",
-      section: "",
-      rollNumber: "",
-      age: "",
-      email: "",
-      phone: "",
-      address: "",
-      guardianName: "",
-      guardianPhone: "",
-      remarks: "",
+
+    const validationErrors = {};
+    Object.keys(formData).forEach((key) => {
+      const error = validate(key, formData[key]);
+      if (error) validationErrors[key] = error;
     });
-    alert("Student added successfully!");
-    window.location.reload();
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length === 0) {
+      if (isEdit) {
+        const studentRef = doc(db, "students", formData.id);
+        await updateDoc(studentRef, formData);
+      } else {
+        await addDoc(collection(db, "students"), formData);
+      }
+      setOpen(false);
+      setFormData({
+        id: "",
+        name: "",
+        class: "",
+        section: "",
+        rollNumber: "",
+        age: "",
+        email: "",
+        phone: "",
+        address: "",
+        guardianName: "",
+        guardianPhone: "",
+        remarks: "",
+      });
+      alert("Student added successfully!");
+      window.location.reload();
+    }
   };
 
   const onEdit = (student) => {
-    console.log(student, "student");
     setFormData(student);
     setOpen(true);
     setIsEdit(true);
+    setIsView(false);
   };
 
   const onView = (student) => {
     setFormData(student);
     setOpen(true);
     setIsView(true);
+    setIsEdit(false);
+  };
+
+  const onDelete = async (id) => {
+    const studentRef = doc(db, "students", id);
+    await deleteDoc(studentRef);
+    setStudents(students.filter((student) => student.id !== id));
   };
 
   const handleClose = () => {
@@ -175,7 +236,6 @@ const StudentsPage = () => {
             <Table stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>ID</TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell>Class</TableCell>
                   <TableCell>Section</TableCell>
@@ -186,7 +246,6 @@ const StudentsPage = () => {
               <TableBody>
                 {students.map((student) => (
                   <TableRow key={student.id}>
-                    <TableCell>{student.id}</TableCell>
                     <TableCell>{student.name}</TableCell>
                     <TableCell>{student.class}</TableCell>
                     <TableCell>{student.section}</TableCell>
@@ -202,7 +261,10 @@ const StudentsPage = () => {
                           <Edit />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Delete">
+                      <Tooltip
+                        title="Delete"
+                        onClick={() => onDelete(student.id)}
+                      >
                         <IconButton color="error">
                           <Delete />
                         </IconButton>
@@ -216,7 +278,6 @@ const StudentsPage = () => {
         </CardContent>
       </Card>
 
-      {/* Add Student Modal */}
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
@@ -244,6 +305,8 @@ const StudentsPage = () => {
               }
               required
               disabled={isView}
+              error={!!errors.name}
+              helperText={errors.name}
             />
             <TextField
               label="Class"
@@ -253,6 +316,8 @@ const StudentsPage = () => {
               }
               required
               disabled={isView}
+              error={!!errors.class}
+              helperText={errors.class}
             />
             <TextField
               label="Section"
@@ -262,6 +327,8 @@ const StudentsPage = () => {
               }
               required
               disabled={isView}
+              error={!!errors.section}
+              helperText={errors.section}
             />
             <TextField
               label="Roll Number"
@@ -271,6 +338,8 @@ const StudentsPage = () => {
               }
               required
               disabled={isView}
+              error={!!errors.rollNumber}
+              helperText={errors.rollNumber}
             />
             <TextField
               label="Age"
@@ -280,6 +349,8 @@ const StudentsPage = () => {
               }
               required
               disabled={isView}
+              error={!!errors.age}
+              helperText={errors.age}
             />
             <TextField
               label="Email"
@@ -289,6 +360,8 @@ const StudentsPage = () => {
               }
               required
               disabled={isView}
+              error={!!errors.email}
+              helperText={errors.email}
             />
             <TextField
               label="Phone"
@@ -298,6 +371,8 @@ const StudentsPage = () => {
               }
               required
               disabled={isView}
+              error={!!errors.phone}
+              helperText={errors.phone}
             />
             <TextField
               label="Address"
@@ -316,6 +391,8 @@ const StudentsPage = () => {
               }
               required
               disabled={isView}
+              error={!!errors.guardianName}
+              helperText={errors.guardianName}
             />
             <TextField
               label="Guardian Phone"
@@ -325,6 +402,8 @@ const StudentsPage = () => {
               }
               required
               disabled={isView}
+              error={!!errors.guardianPhone}
+              helperText={errors.guardianPhone}
             />
             <TextField
               label="Remarks"

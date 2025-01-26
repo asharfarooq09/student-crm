@@ -1,7 +1,6 @@
-// src/AuthContext.js
 import React, { createContext, useContext, useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "./firebase"; // Make sure your Firebase is correctly initialized
+import { auth } from "./firebase";
 
 export const AuthContext = createContext();
 
