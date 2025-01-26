@@ -2,7 +2,6 @@ import * as React from "react";
 import {
   Avatar,
   Button,
-  Link,
   TextField,
   Typography,
   Box,
@@ -12,28 +11,18 @@ import {
 } from "@mui/material";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import LocationCityIcon from "@mui/icons-material/LocationCity";
-
-import { signInWithEmailAndPassword } from "firebase/auth";
-import useForm from "../../hooks/useForm";
-import { auth } from "../../firebase";
-
-const validate = (name, value) => {
-  switch (name) {
-    case "email":
-      if (!value) return "Email is required";
-      if (!/\S+@\S+\.\S+/.test(value)) return "Invalid email format";
-      break;
-    case "password":
-      if (!value) return "Password is required";
-      if (value.length < 6) return "Password must be at least 6 characters";
-      break;
-    default:
-      break;
-  }
-  return "";
-};
+import { useContext, useState, useEffect } from "react";
+import { AuthContext } from "../../AuthProvider";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
+  const { login, user } = useContext(AuthContext);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const navigate = useNavigate();
+
   const paperStyle = {
     padding: 20,
     height: "70vh",
@@ -43,6 +32,7 @@ const Login = () => {
     borderRadius: "12px",
     boxShadow: "0px 0px 8px rgba(0, 0, 0, 0.25)",
   };
+
   const avatarStyle = { backgroundColor: "#D9D9D9" };
   const btnstyle = { backgroundColor: "#1B6DA1", margin: "12px 0" };
   const logoStyle = {
@@ -52,19 +42,21 @@ const Login = () => {
     height: 70,
   };
 
-  const { values, errors, isSubmitting, handleChange, handleSubmit } = useForm(
-    { email: "", password: "" },
-    validate
-  );
-
-  const onSubmit = async ({ email, password }) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      alert("Login successful!");
+      await login("admin@123.com", "admin@123");
     } catch (error) {
-      alert(error.message); 
+      alert(error.message);
     }
+    setIsSubmitting(false);
   };
+
+  useEffect(() => {
+    if (!user) return;
+    navigate("/students");
+  }, [user]);
 
   return (
     <Box
@@ -90,7 +82,7 @@ const Login = () => {
           />
         </Avatar>
         <Typography variant="h5" sx={{ marginTop: 1, fontWeight: "bold" }}>
-          Company Name
+          Student CRM
         </Typography>
       </Box>
 
@@ -109,34 +101,28 @@ const Login = () => {
             Login
           </Typography>
         </Box>
-        <form onSubmit={(e) => handleSubmit(e, onSubmit)}>
+        <form onSubmit={handleSubmit}>
           <TextField
             id="username"
-            name="email"
             label="Email"
             variant="standard"
-            placeholder="Enter Your Username"
+            placeholder="Enter Your Email"
             fullWidth
             required
-            value={values.email}
-            onChange={handleChange}
-            error={!!errors.email}
-            helperText={errors.email}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             sx={{ marginTop: 2 }}
           />
           <TextField
             id="password"
-            name="password"
             label="Password"
             variant="standard"
             placeholder="Enter Your Password"
             type="password"
             fullWidth
             required
-            value={values.password}
-            onChange={handleChange}
-            error={!!errors.password}
-            helperText={errors.password}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             sx={{ marginTop: 2 }}
           />
           <FormControlLabel
@@ -156,13 +142,6 @@ const Login = () => {
             {isSubmitting ? "Logging in..." : "Login"}
           </Button>
         </form>
-
-        <Typography sx={{ marginTop: 2 }}>
-          <Link href="#">Forgot Password?</Link>
-        </Typography>
-        <Typography sx={{ marginTop: 1 }}>
-          Don't have an account? <Link href="#">Sign Up Here.</Link>
-        </Typography>
       </Paper>
     </Box>
   );

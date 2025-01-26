@@ -22,12 +22,18 @@ import {
 } from "@mui/material";
 import { Add, Edit, Delete, Visibility } from "@mui/icons-material";
 import { collection, addDoc, getDocs } from "firebase/firestore";
-import { db } from "../../firebase"; // Ensure the firebase config file is in the correct directory.
+import { db } from "../../firebase";
+import TemporaryDrawer from "../sidebar/Sidebar";
+import { useUserContext } from "../../AuthProvider";
+import { useNavigate } from "react-router-dom";
 
 const StudentsPage = () => {
   const [students, setStudents] = useState([]);
   const [open, setOpen] = useState(false);
+  const [isEdit, setIsEdit] = useState(false);
+  const [isView, setIsView] = useState(false);
   const [formData, setFormData] = useState({
+    id: "",
     name: "",
     class: "",
     section: "",
@@ -41,71 +47,103 @@ const StudentsPage = () => {
     remarks: "",
   });
 
-  // Fetch students from Firestore on component mount
+  const userContext = useUserContext();
+
+  const navigate = useNavigate();
+
   useEffect(() => {
-    const fetchStudents = async () => {
-      try {
+    if (userContext?.user) {
+      const fetchStudents = async () => {
         const querySnapshot = await getDocs(collection(db, "students"));
         const studentData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
         setStudents(studentData);
-      } catch (error) {
-        console.error("Error fetching students:", error.message);
-      }
-    };
-    fetchStudents();
-  }, []);
+      };
+      fetchStudents();
+    }
+  }, [userContext?.user]);
 
-  // Handle form submission
+  useEffect(() => {
+    if (!userContext?.user) {
+      navigate("/");
+    }
+  }, [userContext.user]);
+
+  // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
+    await addDoc(collection(db, "students"), formData);
+    setOpen(false);
+    setFormData({
+      id: "",
+      name: "",
+      class: "",
+      section: "",
+      rollNumber: "",
+      age: "",
+      email: "",
+      phone: "",
+      address: "",
+      guardianName: "",
+      guardianPhone: "",
+      remarks: "",
+    });
+    alert("Student added successfully!");
+    window.location.reload();
+  };
 
-    try {
-      // Add new student to Firestore
-      const docRef = await addDoc(collection(db, "students"), formData);
+  const onEdit = (student) => {
+    console.log(student, "student");
+    setFormData(student);
+    setOpen(true);
+    setIsEdit(true);
+  };
 
-      // Update UI with the new student
-      setStudents((prevStudents) => [
-        ...prevStudents,
-        { id: docRef.id, ...formData },
-      ]);
+  const onView = (student) => {
+    setFormData(student);
+    setOpen(true);
+    setIsView(true);
+  };
 
-      // Close dialog and reset form
-      setOpen(false);
-      setFormData({
-        name: "",
-        class: "",
-        section: "",
-        rollNumber: "",
-        age: "",
-        email: "",
-        phone: "",
-        address: "",
-        guardianName: "",
-        guardianPhone: "",
-        remarks: "",
-      });
-
-      alert("Student added successfully!");
-    } catch (error) {
-      console.error("Error adding student:", error.message);
-      alert(`Failed to add student: ${error.message}`);
-    }
+  const handleClose = () => {
+    setOpen(false);
+    setIsEdit(false);
+    setIsView(false);
+    setFormData({
+      id: "",
+      name: "",
+      class: "",
+      section: "",
+      rollNumber: "",
+      age: "",
+      email: "",
+      phone: "",
+      address: "",
+      guardianName: "",
+      guardianPhone: "",
+      remarks: "",
+    });
   };
 
   return (
     <Box
+      className="student-list"
       sx={{
         maxWidth: "1100px",
         padding: "20px",
-        margin: "0 auto",
         minHeight: "100vh",
         width: "100%",
       }}
     >
-      <Typography variant="h4" gutterBottom>
+      <Typography
+        className="title"
+        variant="h4"
+        gutterBottom
+        sx={{ display: "flex", alignItems: "center", gap: 2 }}
+      >
+        <TemporaryDrawer />
         Students Management
       </Typography>
 
@@ -133,7 +171,6 @@ const StudentsPage = () => {
             </Button>
           </Box>
 
-          {/* Students Table */}
           <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
             <Table stickyHeader>
               <TableHead>
@@ -155,12 +192,12 @@ const StudentsPage = () => {
                     <TableCell>{student.section}</TableCell>
                     <TableCell>{student.rollNumber}</TableCell>
                     <TableCell align="center">
-                      <Tooltip title="View">
+                      <Tooltip title="View" onClick={() => onView(student)}>
                         <IconButton color="primary">
                           <Visibility />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Edit">
+                      <Tooltip title="Edit" onClick={() => onEdit(student)}>
                         <IconButton color="secondary">
                           <Edit />
                         </IconButton>
@@ -179,14 +216,16 @@ const StudentsPage = () => {
         </CardContent>
       </Card>
 
-      {/* Add Student Dialog */}
+      {/* Add Student Modal */}
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Add Student</DialogTitle>
+        <DialogTitle>
+          {isView ? "Student" : isEdit ? "Edit Student" : "Add Student"}
+        </DialogTitle>
         <DialogContent>
           <Box
             component="form"
@@ -204,6 +243,7 @@ const StudentsPage = () => {
                 setFormData({ ...formData, name: e.target.value })
               }
               required
+              disabled={isView}
             />
             <TextField
               label="Class"
@@ -212,6 +252,7 @@ const StudentsPage = () => {
                 setFormData({ ...formData, class: e.target.value })
               }
               required
+              disabled={isView}
             />
             <TextField
               label="Section"
@@ -220,6 +261,7 @@ const StudentsPage = () => {
                 setFormData({ ...formData, section: e.target.value })
               }
               required
+              disabled={isView}
             />
             <TextField
               label="Roll Number"
@@ -228,6 +270,7 @@ const StudentsPage = () => {
                 setFormData({ ...formData, rollNumber: e.target.value })
               }
               required
+              disabled={isView}
             />
             <TextField
               label="Age"
@@ -236,6 +279,7 @@ const StudentsPage = () => {
                 setFormData({ ...formData, age: e.target.value })
               }
               required
+              disabled={isView}
             />
             <TextField
               label="Email"
@@ -244,6 +288,7 @@ const StudentsPage = () => {
                 setFormData({ ...formData, email: e.target.value })
               }
               required
+              disabled={isView}
             />
             <TextField
               label="Phone"
@@ -252,6 +297,7 @@ const StudentsPage = () => {
                 setFormData({ ...formData, phone: e.target.value })
               }
               required
+              disabled={isView}
             />
             <TextField
               label="Address"
@@ -260,6 +306,7 @@ const StudentsPage = () => {
                 setFormData({ ...formData, address: e.target.value })
               }
               required
+              disabled={isView}
             />
             <TextField
               label="Guardian Name"
@@ -268,6 +315,7 @@ const StudentsPage = () => {
                 setFormData({ ...formData, guardianName: e.target.value })
               }
               required
+              disabled={isView}
             />
             <TextField
               label="Guardian Phone"
@@ -276,6 +324,7 @@ const StudentsPage = () => {
                 setFormData({ ...formData, guardianPhone: e.target.value })
               }
               required
+              disabled={isView}
             />
             <TextField
               label="Remarks"
@@ -285,14 +334,18 @@ const StudentsPage = () => {
               }
               multiline
               rows={3}
+              disabled={isView}
             />
           </Box>
         </DialogContent>
+
         <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit}>
-            Submit
-          </Button>
+          <Button onClick={handleClose}>Cancel</Button>
+          {!isView && (
+            <Button variant="contained" onClick={handleSubmit}>
+              {isEdit ? "Edit" : "Add"}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>
